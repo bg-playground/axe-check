@@ -8,7 +8,10 @@ Star if this replaced a 40-line workflow file.
 npm install
 npx playwright install chromium
 node axe-check.mjs https://example.com
+npm run test:contrast
 ```
+
+`test:contrast` loads a local fixture. `#fail` is `#64728c` on `#e8eaef` at 16px, the same pair the OrangeHRM hint text failed. `#pass` is `#1a1a1a` on white. The test fails unless axe flags only the first.
 
 Exit `0` when nothing at or above the fail level is found. Exit `1` when violations block. Exit `2` on bad arguments or a page that never loads. Exit `3` only when `--strict-review` is set and axe left rules incomplete. A short summary goes to stderr. The JSON report goes to stdout, or to `--out`.
 

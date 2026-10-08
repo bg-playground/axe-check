@@ -9,7 +9,8 @@
     "axe-check": "./axe-check.mjs"
   },
   "scripts": {
-    "check": "node axe-check.mjs"
+    "check": "node axe-check.mjs",
+    "test:contrast": "node test/color-contrast.mjs"
   },
   "engines": {
     "node": ">=18"
