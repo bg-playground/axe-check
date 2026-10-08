@@ -10,10 +10,11 @@
   },
   "scripts": {
     "check": "node axe-check.mjs",
+    "test": "node --test test/cli.test.mjs && npm run test:contrast",
     "test:contrast": "node test/color-contrast.mjs"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=20"
   },
   "dependencies": {
     "@axe-core/playwright": "^4.10.1",

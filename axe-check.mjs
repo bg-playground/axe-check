@@ -45,17 +45,35 @@ function parseArgs(argv) {
   }
   args.url = positional[0] ?? '';
   if (args.tags.length === 0) args.tags = [...DEFAULT_TAGS];
+  if (!args.help) validateArgs(args, positional);
   return args;
+}
+
+function validateArgs(args, positional) {
+  if (positional.length !== 1) throw new Error('Provide exactly one URL; use --help for usage');
+  let url;
+  try { url = new URL(args.url); } catch { throw new Error('URL must be an absolute http:, https:, or file: URL'); }
+  if (!['http:', 'https:', 'file:'].includes(url.protocol)) {
+    throw new Error('URL must use http:, https:, or file:');
+  }
+  if (!Object.hasOwn(IMPACT_RANK, args.failOn)) {
+    throw new Error('--fail-on must be minor, moderate, serious, or critical');
+  }
+  if (!Number.isSafeInteger(args.timeout) || args.timeout <= 0) {
+    throw new Error('--timeout must be a positive safe integer in milliseconds');
+  }
 }
 
 function required(argv, index, flag) {
   const value = argv[index];
-  if (!value || value.startsWith('-')) throw new Error(`${flag} needs a value`);
+  if (!value?.trim() || value.startsWith('-')) throw new Error(`${flag} needs a value`);
   return value;
 }
 
 function splitTags(value) {
-  return value.split(',').map((tag) => tag.trim()).filter(Boolean);
+  const tags = value.split(',').map((tag) => tag.trim());
+  if (tags.some((tag) => !tag)) throw new Error('--tags needs non-empty comma-separated tags');
+  return tags;
 }
 
 function blocking(violations, failOn) {
@@ -110,13 +128,11 @@ async function main() {
     console.error(help());
     process.exit(args.help ? 0 : 2);
   }
-  if (!Number.isFinite(args.timeout) || args.timeout <= 0) {
-    throw new Error('--timeout must be a positive number');
-  }
 
   const browser = await chromium.launch({ headless: true });
-  const context = await browser.newContext();
+  let context;
   try {
+    context = await browser.newContext();
     const page = await context.newPage();
     const response = await page.goto(args.url, {
       waitUntil: 'domcontentloaded',
@@ -139,7 +155,8 @@ async function main() {
       failOn: args.failOn,
       waitFor: args.waitFor,
       strictReview: args.strictReview,
-      violations: failed,
+      violations: results.violations,
+      blockingViolations: failed,
       incomplete: review,
     };
     const json = JSON.stringify(report, null, 2);
@@ -150,8 +167,7 @@ async function main() {
     else if (args.strictReview && review.length > 0) process.exitCode = 3;
     else process.exitCode = 0;
   } finally {
-    await context.close();
-    await browser.close();
+    try { await context?.close(); } finally { await browser.close(); }
   }
 }
 
