@@ -1,0 +1,3 @@
+node_modules/
+axe-report.json
+*.log

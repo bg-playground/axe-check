@@ -1,0 +1,21 @@
+{
+  "name": "axe-check",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "One-file WCAG 2.1 AA scan for a URL. Playwright + axe-core.",
+  "license": "MIT",
+  "bin": {
+    "axe-check": "./axe-check.mjs"
+  },
+  "scripts": {
+    "check": "node axe-check.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@axe-core/playwright": "^4.10.1",
+    "playwright": "^1.49.0"
+  }
+}
