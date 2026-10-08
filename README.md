@@ -1,6 +1,29 @@
-# axe-check
+<div align="center">
 
-Scan one URL for automated accessibility findings with Playwright Chromium and axe-core. The CLI stays in one file, `axe-check.mjs`. By default it checks WCAG 2.1 A/AA rule tags and fails when axe finds a serious or critical violation.
+# axe-check
+### Find the barrier. Understand the fix.
+
+A one-file accessibility CLI and a hands-on lab for learning how to turn automated findings into better web experiences.
+
+[**Start the learning lab →**](examples/README.md) · [Quick start](#quick-start) · [CLI options](#options) · [Output contract](#output-contract)
+
+[![MIT license](docs/assets/license.svg)](LICENSE)
+[![Node.js 20 or newer](docs/assets/node.svg)](package.json)
+
+</div>
+
+---
+
+Scan one URL with **Playwright Chromium + axe-core**. Read a terminal summary, keep the JSON evidence, repair the page, and rerun. By default, WCAG 2.1 A/AA rule tags are selected and serious or critical violations block the run.
+
+**A passing automated gate is evidence, not proof of WCAG conformance.** The lab teaches both the repairs axe can identify and the keyboard behavior it can miss.
+
+## What you can do
+
+- **Learn by repairing:** paired broken and corrected pages, with four intentional blocking rules.
+- **Inspect useful evidence:** rule IDs, affected nodes, failure explanations and help links in JSON.
+- **Choose a gate:** impact thresholds, repeatable scope selectors, rule tags and optional strict review.
+- **Read the whole implementation:** the CLI lives in [one file](axe-check.mjs), with [local regression tests](test/cli.test.mjs).
 
 ## Quick start
 
@@ -18,7 +41,36 @@ On Linux CI, use `npx playwright install --with-deps chromium` to install browse
 
 ## Hands-on learning
 
-Try the [accessibility teaching lab](examples/README.md): scan a deliberately inaccessible local page, inspect rule findings and exit status, repair it, and compare with a corrected counterpart. The walkthrough includes keyboard and screen-reader checks and explains why a passing automated gate does not prove WCAG conformance.
+![Learning workflow: scan the broken page, inspect evidence, repair and rerun, then test manually. The broken demo has four blocking rules and exit 1; the corrected counterpart has no blocking violations and exit 0.](docs/assets/learning-flow.svg)
+
+**[Open the step-by-step lab →](examples/README.md)**
+
+1. **Scan** [the deliberately inaccessible page](examples/inaccessible.html). The lab provides a command that works in PowerShell and POSIX shells using an absolute file URL. Expect exit **1**.
+2. **Inspect** `demo-before.json`: connect each rule's `nodes`, `failureSummary` and `helpUrl` to the markup.
+3. **Repair** a practice copy: meaningful map text, a visible input label, a named button and readable hint contrast. Compare [the corrected counterpart](examples/accessible.html).
+4. **Rerun**, then **test manually**. The four scan repairs can produce exit **0** while the clickable div still lacks keyboard behavior. Finish the native-button, disclosure-state and feedback repairs described in the lab.
+
+Both examples are local teaching pages; no booking or email is sent. After dependencies and Chromium are installed, the demo scan needs no server or external website.
+
+### What the terminal tells you
+
+Illustrative excerpts from the lab's stderr summaries; file URL prefixes and rule ordering can vary. The failing excerpt omits individual rule details. The committed tests expect four blocking rules before repair and empty finding arrays in the corrected counterpart.
+
+**Before — intended failure, exit 1**
+
+```text
+file:///…/examples/inaccessible.html: 4 blocking rule(s)
+```
+
+The four rules are `image-alt`, `label`, `button-name` and `color-contrast`.
+
+**After — configured gate passes, exit 0**
+
+```text
+file:///…/examples/accessible.html: no blocking violations
+```
+
+With `--out`, the report goes to your file and stdout stays empty. Without it, stdout contains JSON. Counts describe **rules**, not elements. Exit 0 can still retain below-threshold violations or non-strict incomplete findings: always inspect the report. See the [output contract](#output-contract) for all four exit codes.
 
 ## Examples
 
@@ -143,7 +195,7 @@ npm run test:contrast
 
 The CLI integration suite serves static HTML on an ephemeral loopback port and also scans a local file. It checks exit codes 0/1/2/3, threshold retention, strict-review precedence, stdout/stderr separation, file output, repeatable options, early argument errors, HTTP errors, selector failures and write errors. The contrast regression confirms that the failing color pair is flagged and the passing pair stays clean. Chromium must be installed to run these tests.
 
-## What automated testing can tell you
+## Limits: one page state, plus human judgment
 
 This is one scan of one rendered page in a fresh, headless Chromium context. It waits for DOM content and a visible selector, then runs axe. It does not crawl routes, sign in, click through interactions, test every responsive layout, or guarantee that asynchronous content has finished loading. Choose a meaningful `--wait-for` selector for dynamic pages. The timeout is not a deadline for the entire scan.
 
