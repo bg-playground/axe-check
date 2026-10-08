@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Workshop booking — corrected example</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<main>
+  <p class="eyebrow">axe-check learning lab</p>
+  <span class="badge">Corrected counterpart</span>
+  <h1>Build a more inclusive web</h1>
+  <p>A small workshop booking page. Compare its scan findings and try every control with your keyboard.</p>
+  <section class="card" aria-labelledby="visit-heading">
+    <h2 id="visit-heading">Visit the workshop</h2>
+    <p>Saturday, 10 am at Community Hall. The hall is between the two north–south streets, just north of the east–west road.</p>
+    <img id="venue-map" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='352' height='128' viewBox='0 0 352 128'%3E%3Crect width='352' height='128' fill='%23e2eaf5'/%3E%3Cpath d='M20 100H332M80 20V110M260 20V110' stroke='%23526480' stroke-width='8'/%3E%3Crect x='140' y='30' width='72' height='56' rx='6' fill='%23244574'/%3E%3Ctext x='176' y='65' text-anchor='middle' font-family='sans-serif' font-size='16' fill='white'%3EHALL%3C/text%3E%3C/svg%3E" alt="Community Hall between two north–south streets, north of the east–west road." width="352" height="128">
+    <button type="button" id="details-trigger" aria-expanded="false" aria-controls="details">Show arrival details</button>
+    <p id="details" hidden>The entrance is on the south side of the hall. Doors open at 9:45 am.</p>
+  </section>
+  <section class="card" aria-labelledby="booking-heading">
+    <h2 id="booking-heading">Reserve a place</h2>
+    <label for="email">Email address</label>
+    <input id="email" type="email" autocomplete="email" aria-describedby="email-hint">
+    <p class="hint" id="email-hint">Use the address where you want to receive workshop details.</p>
+    <button id="reserve" type="button">Reserve a place</button>
+    <p id="confirmation" role="status"></p>
+  </section>
+  <footer>
+    <p>This is a local teaching example; no booking or email is sent.</p>
+    <p><a href="inaccessible.html">Compare the inaccessible example</a> · Read the walkthrough in <code>examples/README.md</code>.</p>
+  </footer>
+</main>
+<script>
+  const trigger = document.querySelector('#details-trigger');
+  const details = document.querySelector('#details');
+  trigger.addEventListener('click', () => {
+    details.hidden = !details.hidden;
+    trigger.setAttribute('aria-expanded', String(!details.hidden));
+    trigger.textContent = details.hidden ? 'Show arrival details' : 'Hide arrival details';
+  });
+  document.querySelector('#reserve').addEventListener('click', () => {
+    document.querySelector('#confirmation').textContent = 'Demo reservation recorded. No email was sent.';
+  });
+</script>
+</body>
+</html>

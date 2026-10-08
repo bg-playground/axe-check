@@ -16,6 +16,10 @@ node axe-check.mjs https://example.com
 
 On Linux CI, use `npx playwright install --with-deps chromium` to install browser system dependencies too. `npm ci` uses the committed lockfile; install Chromium again after updating Playwright.
 
+## Hands-on learning
+
+Try the [accessibility teaching lab](examples/README.md): scan a deliberately inaccessible local page, inspect rule findings and exit status, repair it, and compare with a corrected counterpart. The walkthrough includes keyboard and screen-reader checks and explains why a passing automated gate does not prove WCAG conformance.
+
 ## Examples
 
 Keep the JSON report and read the human summary in your terminal:

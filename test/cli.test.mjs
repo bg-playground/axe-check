@@ -142,3 +142,45 @@ test('HTTP, wait, selector and output errors exit 2 without stdout JSON', async 
     assert.match(result.stderr, message);
   }
 });
+
+test('teaching pages demonstrate four blocking rules and a clean strict-review gate', async () => {
+  const broken = report(await run([new URL('../examples/inaccessible.html', import.meta.url).href]), 1);
+  const expected = ['button-name', 'color-contrast', 'image-alt', 'label'];
+  assert.deepEqual(broken.violations.map((rule) => rule.id).sort(), expected);
+  assert.deepEqual(broken.blockingViolations.map((rule) => rule.id).sort(), expected);
+  for (const rule of broken.violations) {
+    assert.ok(rule.helpUrl.startsWith('https://'));
+    assert.ok(rule.nodes.length > 0);
+    assert.ok(rule.nodes.every((node) => node.target.length > 0 && node.failureSummary));
+  }
+  const corrected = report(await run([
+    new URL('../examples/accessible.html', import.meta.url).href, '--strict-review',
+  ]), 0);
+  assert.deepEqual(corrected.violations, []);
+  assert.deepEqual(corrected.blockingViolations, []);
+  assert.deepEqual(corrected.incomplete, []);
+});
+test('corrected teaching controls work from the keyboard and expose state and feedback', async () => {
+  const { chromium } = await import('playwright');
+  const browser = await chromium.launch({ headless: true });
+  try {
+    const page = await browser.newPage();
+    await page.goto(new URL('../examples/accessible.html', import.meta.url).href);
+    await page.keyboard.press('Tab');
+    assert.equal(await page.locator('#details-trigger').evaluate((el) => el === document.activeElement), true);
+    for (const [key, expanded] of [['Enter', 'true'], ['Space', 'false']]) {
+      await page.keyboard.press(key);
+      assert.equal(await page.locator('#details-trigger').getAttribute('aria-expanded'), expanded);
+      assert.equal(await page.locator('#details').isVisible(), expanded === 'true');
+      assert.equal(await page.locator('#details-trigger').evaluate((el) => el === document.activeElement), true);
+    }
+    await page.keyboard.press('Tab');
+    assert.equal(await page.locator('#email').evaluate((el) => el === document.activeElement), true);
+    await page.keyboard.press('Tab');
+    assert.equal(await page.locator('#reserve').evaluate((el) => el === document.activeElement), true);
+    await page.keyboard.press('Enter');
+    assert.equal(await page.locator('[role="status"]').textContent(), 'Demo reservation recorded. No email was sent.');
+  } finally {
+    await browser.close();
+  }
+});
