@@ -3,14 +3,16 @@ import { writeFile } from 'node:fs/promises';
 import { chromium } from 'playwright';
 import AxeBuilder from '@axe-core/playwright';
 
-const TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'];
+const DEFAULT_TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'];
 const IMPACT_RANK = { minor: 1, moderate: 2, serious: 3, critical: 4 };
 
 function help() {
-  return `axe-check <url> [--include sel] [--exclude sel] [--fail-on serious] [--timeout 30000] [--out file]
+  return `axe-check <url> [--include sel] [--exclude sel] [--fail-on serious] [--timeout 30000]
+         [--wait-for body] [--tags tag] [--strict-review] [--out file]
 
-Scan a URL for WCAG 2.1 A/AA issues with Playwright and axe-core.
-Fails when a violation is at or above --fail-on. Summary on stderr, JSON on stdout.`;
+Scan a URL for WCAG A/AA issues with Playwright and axe-core.
+Fails when a violation is at or above --fail-on. Summary on stderr, JSON on stdout.
+Incomplete rules are printed and do not fail the run unless --strict-review is set.`;
 }
 
 function parseArgs(argv) {
@@ -18,9 +20,12 @@ function parseArgs(argv) {
     url: '',
     include: [],
     exclude: [],
+    tags: [],
     failOn: 'serious',
     timeout: 30000,
+    waitFor: 'body',
     out: '',
+    strictReview: false,
     help: false,
   };
   const positional = [];
@@ -29,13 +34,17 @@ function parseArgs(argv) {
     if (token === '--help' || token === '-h') args.help = true;
     else if (token === '--include') args.include.push(required(argv, ++i, token));
     else if (token === '--exclude') args.exclude.push(required(argv, ++i, token));
+    else if (token === '--tags') args.tags.push(...splitTags(required(argv, ++i, token)));
     else if (token === '--fail-on') args.failOn = required(argv, ++i, token);
     else if (token === '--timeout') args.timeout = Number(required(argv, ++i, token));
+    else if (token === '--wait-for') args.waitFor = required(argv, ++i, token);
     else if (token === '--out') args.out = required(argv, ++i, token);
+    else if (token === '--strict-review') args.strictReview = true;
     else if (token.startsWith('-')) throw new Error(`Unknown flag ${token}`);
     else positional.push(token);
   }
   args.url = positional[0] ?? '';
+  if (args.tags.length === 0) args.tags = [...DEFAULT_TAGS];
   return args;
 }
 
@@ -45,18 +54,52 @@ function required(argv, index, flag) {
   return value;
 }
 
+function splitTags(value) {
+  return value.split(',').map((tag) => tag.trim()).filter(Boolean);
+}
+
 function blocking(violations, failOn) {
   const floor = IMPACT_RANK[failOn];
   if (!floor) throw new Error('--fail-on must be minor, moderate, serious, or critical');
   return violations.filter((violation) => (IMPACT_RANK[violation.impact] ?? 0) >= floor);
 }
 
-function summarize(url, violations) {
-  if (violations.length === 0) return `${url}: no blocking violations`;
-  const lines = [`${url}: ${violations.length} blocking rule(s)`];
-  for (const violation of violations) {
-    const nodes = violation.nodes?.length ?? 0;
-    lines.push(`- ${violation.impact} ${violation.id} (${nodes} node${nodes === 1 ? '' : 's'}) ${violation.help}`);
+function firstDetail(rule) {
+  const node = rule.nodes?.[0];
+  if (!node) return '';
+  const target = Array.isArray(node.target) ? node.target.join(' ') : String(node.target ?? '');
+  const reason = (node.failureSummary || '')
+    .split('\n')
+    .map((line) => line.trim())
+    .find((line) => line && !line.startsWith('Fix '));
+  return `  ${target}: ${reason || 'needs review'}`;
+}
+
+function ruleLine(rule) {
+  const nodes = rule.nodes?.length ?? 0;
+  return `- ${rule.impact ?? 'unknown'} ${rule.id} (${nodes} node${nodes === 1 ? '' : 's'}) ${rule.help}`;
+}
+
+function summarize(url, violations, incomplete, strictReview) {
+  const lines = [
+    violations.length === 0
+      ? `${url}: no blocking violations`
+      : `${url}: ${violations.length} blocking rule(s)`,
+  ];
+  for (const rule of violations) {
+    lines.push(ruleLine(rule));
+    const detail = firstDetail(rule);
+    if (detail) lines.push(detail);
+  }
+  if (incomplete.length === 0) return lines.join('\n');
+  const review = strictReview && violations.length === 0
+    ? 'incomplete, failed the run because --strict-review is set:'
+    : 'incomplete, did not fail the run:';
+  lines.push(review);
+  for (const rule of incomplete) {
+    lines.push(ruleLine(rule));
+    const detail = firstDetail(rule);
+    if (detail) lines.push(detail);
   }
   return lines.join('\n');
 }
@@ -82,24 +125,30 @@ async function main() {
     if (response && response.status() >= 400) {
       throw new Error(`${args.url} returned HTTP ${response.status()}`);
     }
+    await page.waitForSelector(args.waitFor, { state: 'visible', timeout: args.timeout });
 
-    let builder = new AxeBuilder({ page }).withTags(TAGS);
+    let builder = new AxeBuilder({ page }).withTags(args.tags);
     for (const selector of args.include) builder = builder.include(selector);
     for (const selector of args.exclude) builder = builder.exclude(selector);
     const results = await builder.analyze();
     const failed = blocking(results.violations, args.failOn);
+    const review = results.incomplete ?? [];
     const report = {
       url: args.url,
-      tags: TAGS,
+      tags: args.tags,
       failOn: args.failOn,
+      waitFor: args.waitFor,
+      strictReview: args.strictReview,
       violations: failed,
-      incomplete: results.incomplete?.length ?? 0,
+      incomplete: review,
     };
     const json = JSON.stringify(report, null, 2);
     if (args.out) await writeFile(args.out, `${json}\n`);
     else console.log(json);
-    console.error(summarize(args.url, failed));
-    process.exitCode = failed.length === 0 ? 0 : 1;
+    console.error(summarize(args.url, failed, review, args.strictReview));
+    if (failed.length > 0) process.exitCode = 1;
+    else if (args.strictReview && review.length > 0) process.exitCode = 3;
+    else process.exitCode = 0;
   } finally {
     await context.close();
     await browser.close();
